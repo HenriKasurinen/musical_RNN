@@ -23,11 +23,13 @@ majors = dict([("A-", 4),("A", 3),("B-", 2),("B", 1),("C", 0),("D-", -1),("D", -
 minors = dict([("A-", 1),("A", 0),("B-", -1),("B", -2),("C", -3),("D-", -4),("D", -5),("E-", 6),("E", 5),("F", 4),("G-", 3),("G", 2)])
 
 
-files = 'C:\\Users\\Henri_2\\Desktop\\Musical_RNN\\Data\\*.mid'
-for file in glob.glob(files):
+#files = 'C:\\Users\\Henri_2\\Desktop\\Musical_RNN\\Data\\*.mid'
+os.chdir("./Data")
+for file in glob.glob("*.mid"):
+    print("converting ", file)
     score = music21.converter.parse(file)
     key = score.analyze('key')
-#    print key.tonic.name, key.mode
+    print ("old key: ", key.tonic.name, key.mode)
     if key.mode == "major":
         halfSteps = majors[key.tonic.name]
         
@@ -36,6 +38,6 @@ for file in glob.glob(files):
     
     newscore = score.transpose(halfSteps)
     key = newscore.analyze('key')
-    print( key.tonic.name, key.mode)
+    print( "new key: ", key.tonic.name, key.mode)
     newFileName = "C_" + file
     newscore.write('midi',newFileName)

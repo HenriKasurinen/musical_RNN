@@ -1,52 +1,35 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 12 17:36:46 2018
+Created on Wed Nov 14 16:28:19 2018
 
 @author: Henri_2
 """
-from __future__ import print_function
-from keras.callbacks import LambdaCallback
-from keras.optimizers import RMSprop
-from keras.utils.data_utils import get_file
-from music21 import converter, instrument, note, chord, stream
+import numpy
+import os
+import glob
+import pickle
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
 from keras.layers import LSTM
 from keras.layers import Activation
-from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint
-import numpy
-import random
-import sys
-import os
-import io
-import music21
-import glob
-import pickle
+from music21 import converter, instrument, note, chord, stream
+from keras.utils import np_utils
 
-
+ ##GENERATION OF MUSIC##
+    # Get all pitch names
 def main():
-    """ Train a Neural Network to generate music """
-    notes = get_notes()
-
+    #notes = get_notes()
+    with open('data/notes', 'rb') as filepath:
+        notes = pickle.load(filepath)
     # get amount of pitch names
     n_vocab = len(set(notes))
     
     notenames = sorted(set(item for item in notes))
     
-    network_input, network_output = make_sequence(notes, n_vocab, notenames)
-
-    model = create_network(network_input, n_vocab)
-
-    train(model, network_input, network_output)
-    
-    ##GENERATION OF MUSIC##
-    # Get all pitch names
-
-    #VIRHE, funktio palauttaa input ja output, ei normalized input
     network_input, normalized_input = make_sequence(notes, n_vocab, notenames)
-    #model = create_network(normalized_input, n_vocab)
+    model = create_network(normalized_input, n_vocab)
     prediction_output = generate_notes(model, network_input, notenames, n_vocab)
     create_midi(prediction_output)
 
@@ -70,48 +53,14 @@ def make_sequence(notes, n_vocab, notenames):
         
     patterns = len(net_input)
 
-    net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
+    normalized_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
 
-    net_input = net_input/float(n_vocab)
+    normalized_input = normalized_input/float(n_vocab)
     
-    output = np_utils.to_categorical(output)
+    #output = np_utils.to_categorical(output)
     
-    return (net_input, output)
+    return (net_input, normalized_input)
 
-
-def get_notes():
-
-    """ Get all the notes and chords from the midi files in the ./midi_songs directory """
-    print('Loading midi-files from \Data')
-    notes = []
-    
-    #files = 'C:\\Users\\Henri_2\\Desktop\\Musical_RNN\\Data\\*.mid'
-         
-    os.chdir("./Data")
-        
-    for file in glob.glob("*.mid"):
-        midi = converter.parse(file)
-    
-        print("Parsing %s" % file)
-    
-        notes_to_parse = None
-    
-        try: # file has instrument parts
-            s2 = instrument.partitionByInstrument(midi)
-            notes_to_parse = s2.parts[0].recurse() 
-        except: # file has notes in a flat structure
-            notes_to_parse = midi.flat.notes
-    
-        for element in notes_to_parse:
-            if isinstance(element, note.Note):
-                notes.append(str(element.pitch))
-            elif isinstance(element, chord.Chord):
-                notes.append('.'.join(str(n) for n in element.normalOrder))
-    
-    with open('notes', 'wb') as filepath:
-        pickle.dump(notes, filepath)
-
-    return notes
 
 def create_network(network_input, n_vocab):
     print('creating network')
@@ -131,22 +80,10 @@ def create_network(network_input, n_vocab):
     model.add(Dense(n_vocab))
     model.add(Activation('softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+    
+    model.load_weights('weights.hdf5')
 
     return model
-
-def train(model, network_input, network_output):
-    print('Training network')
-    filepath = "weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
-    checkpoint = ModelCheckpoint(
-        filepath,
-        monitor='loss',
-        verbose=0,
-        save_best_only=True,
-        mode='min'
-    )
-    callbacks_list = [checkpoint]
-
-    model.fit(network_input, network_output, epochs=2, batch_size=64, callbacks=callbacks_list)
     
     
 def generate_notes(model, network_input, pitchnames, n_vocab):
