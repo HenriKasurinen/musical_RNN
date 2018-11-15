@@ -3,10 +3,13 @@
 Created on Wed Nov 14 16:28:19 2018
 
 @author: Henri_2
+
+Tällä funktiolla voi generoida nuotteja käyttäen valmiita painoarvoja
+neuroverkon eri solmuille. Painot ladataan funktiossa "gcreate_network"
 """
 import numpy
-import os
-import glob
+#import os
+#import glob
 import pickle
 from keras.models import Sequential
 from keras.layers import Dense
@@ -18,9 +21,9 @@ from music21 import converter, instrument, note, chord, stream
 from keras.utils import np_utils
 
  ##GENERATION OF MUSIC##
-    # Get all pitch names
+
 def main():
-    #notes = get_notes()
+
     with open('data/notes', 'rb') as filepath:
         notes = pickle.load(filepath)
     # get amount of pitch names
@@ -86,13 +89,13 @@ def create_network(network_input, n_vocab):
     return model
     
     
-def generate_notes(model, network_input, pitchnames, n_vocab):
+def generate_notes(model, network_input, notenames, n_vocab):
     print('generating notes')
     """ Generate notes from the neural network based on a sequence of notes """
     # pick a random sequence from the input as a starting point for the prediction
     start = numpy.random.randint(0, len(network_input)-1)
 
-    int_to_note = dict((number, note) for number, note in enumerate(pitchnames))
+    int_to_note = dict((number, note) for number, note in enumerate(notenames))
 
     pattern = network_input[start]
     prediction_output = []

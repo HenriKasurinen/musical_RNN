@@ -3,11 +3,15 @@
 Created on Mon Nov 12 17:36:46 2018
 
 @author: Henri_2
+
+Tämä scripti kouluttaa ensi neuroverkon /Data -kansiosta
+löytyvällä koulutusdatalla ja generoi sen jälkeen 
+koulutetun neuroverkon avulla uusia nuottien ja sointujen sarjoja
 """
 from __future__ import print_function
-from keras.callbacks import LambdaCallback
-from keras.optimizers import RMSprop
-from keras.utils.data_utils import get_file
+#from keras.callbacks import LambdaCallback
+#from keras.optimizers import RMSprop
+#from keras.utils.data_utils import get_file
 from music21 import converter, instrument, note, chord, stream
 from keras.models import Sequential
 from keras.layers import Dense
@@ -17,11 +21,11 @@ from keras.layers import Activation
 from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint
 import numpy
-import random
-import sys
+#import random
+#import sys
 import os
-import io
-import music21
+#import io
+#import music21
 import glob
 import pickle
 
@@ -45,10 +49,9 @@ def main():
     # Get all pitch names
 
     #VIRHE, funktio palauttaa input ja output, ei normalized input
-    network_input, normalized_input = make_sequence(notes, n_vocab, notenames)
-    #model = create_network(normalized_input, n_vocab)
-    prediction_output = generate_notes(model, network_input, notenames, n_vocab)
-    create_midi(prediction_output)
+    #network_input, normalized_input = make_sequence(notes, n_vocab, notenames)
+    #prediction_output = generate_notes(model, network_input, notenames, n_vocab)
+    #create_midi(prediction_output)
 
 def make_sequence(notes, n_vocab, notenames):
     print('total length of training data:', len(notes), ' notes')
@@ -56,7 +59,6 @@ def make_sequence(notes, n_vocab, notenames):
     
     
     notes_to_int = dict((note, number) for number, note in enumerate(notenames))
-    #int_to_notes = dict((number, note) for number, note in enumerate(notenames))
     
     # cut the text in semi-redundant sequences of maxlen characters
     sequence_length = 100
@@ -149,13 +151,13 @@ def train(model, network_input, network_output):
     model.fit(network_input, network_output, epochs=2, batch_size=64, callbacks=callbacks_list)
     
     
-def generate_notes(model, network_input, pitchnames, n_vocab):
+def generate_notes(model, network_input, notenames, n_vocab):
     print('generating notes')
     """ Generate notes from the neural network based on a sequence of notes """
     # pick a random sequence from the input as a starting point for the prediction
     start = numpy.random.randint(0, len(network_input)-1)
 
-    int_to_note = dict((number, note) for number, note in enumerate(pitchnames))
+    int_to_note = dict((number, note) for number, note in enumerate(notenames))
 
     pattern = network_input[start]
     prediction_output = []

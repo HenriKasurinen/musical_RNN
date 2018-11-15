@@ -4,6 +4,11 @@ Created on Tue Nov 13 21:56:15 2018
 
 @author: Henri_2
 
+Jokainen musiikkikappale koostuu tiettyjen nuottien eri yhdistelmästä. Nämä
+nuotit ovat "samassa sävellajissa" eli niiden yhdistelmä kuulostaa ihmisen 
+mielestä hyvältä. Jotta neuroverkko tuottaa luotettavammin hyvänkuuloisia
+nuottien segvenssejä, on koulutusdata muutettava samaan sävellajiin.
+
 Spcript written by Dr Nick Kelly
 http://nickkellyresearch.com/python-script-transpose-midi-files-c-minor/
 
