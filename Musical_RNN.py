@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on Mon Nov 12 17:36:46 2018
 
 @author: Henri_2
 
-Tämä scripti kouluttaa ensi neuroverkon /Data -kansiosta
-löytyvällä koulutusdatalla ja generoi sen jälkeen 
-koulutetun neuroverkon avulla uusia nuottien ja sointujen sarjoja
+This script trains a recursive neural network with midi data
 """
 from __future__ import print_function
-#from keras.callbacks import LambdaCallback
-#from keras.optimizers import RMSprop
-#from keras.utils.data_utils import get_file
 from music21 import converter, instrument, note, chord, stream
 from keras.models import Sequential
 from keras.layers import Dense
@@ -21,18 +16,17 @@ from keras.layers import Activation
 from keras.utils import np_utils
 from keras.callbacks import ModelCheckpoint
 import numpy
-#import random
-#import sys
 import os
-#import io
-#import music21
 import glob
 import pickle
 
 
 def main():
     """ Train a Neural Network to generate music """
-    notes = get_notes()
+    #The notes can be extracted from midi files or loaded directly from as a list    
+    #notes = get_notes()    
+    with open('data/notes', 'rb') as filepath:
+        notes = pickle.load(filepath)
 
     # get amount of pitch names
     n_vocab = len(set(notes))
@@ -45,23 +39,21 @@ def main():
 
     train(model, network_input, network_output)
     
-    ##GENERATION OF MUSIC##
-    # Get all pitch names
 
-    #VIRHE, funktio palauttaa input ja output, ei normalized input
-    #network_input, normalized_input = make_sequence(notes, n_vocab, notenames)
-    #prediction_output = generate_notes(model, network_input, notenames, n_vocab)
-    #create_midi(prediction_output)
-
+""" This function cuts the notes list into "sequence_length" long sequences
+    and their respective outputs: X notes from the list and the X+1:th note as 
+    the output of the sequence. These sequences are used to train the network"""
 def make_sequence(notes, n_vocab, notenames):
+
     print('total length of training data:', len(notes), ' notes')
     print('number of individual notes: ', n_vocab)
-    
-    
+        
+    #Each note object is mapped to an integer, because the network can handle
+    #integer better than strings
     notes_to_int = dict((note, number) for number, note in enumerate(notenames))
     
-    # cut the text in semi-redundant sequences of maxlen characters
-    sequence_length = 100
+    # cut the notes list into sequences of length sequence_length
+    sequence_length = 50
     net_input = []
     output = []
     for i in range(0, len(notes) - sequence_length, 1):
@@ -80,30 +72,25 @@ def make_sequence(notes, n_vocab, notenames):
     
     return (net_input, output)
 
-
+""" This function gets all the notes and chords from the midi files in the 
+    ./Data directory and creates a list of each note in the midi songs"""
 def get_notes():
-
-    """ Get all the notes and chords from the midi files in the ./midi_songs directory """
     print('Loading midi-files from \Data')
     notes = []
-    
-    #files = 'C:\\Users\\Henri_2\\Desktop\\Musical_RNN\\Data\\*.mid'
-         
-    os.chdir("./Data")
-        
+             
+    os.chdir("./Data")        
     for file in glob.glob("*.mid"):
-        midi = converter.parse(file)
-    
-        print("Parsing %s" % file)
-    
+        midi = converter.parse(file)    
+        print("Parsing %s" % file)    
         notes_to_parse = None
     
         try: # file has instrument parts
             s2 = instrument.partitionByInstrument(midi)
             notes_to_parse = s2.parts[0].recurse() 
-        except: # file has notes in a flat structure
+        except: # file has only notes from a single instrument
             notes_to_parse = midi.flat.notes
     
+        #chords are appended as individual notes separated with dots
         for element in notes_to_parse:
             if isinstance(element, note.Note):
                 notes.append(str(element.pitch))
@@ -115,6 +102,7 @@ def get_notes():
 
     return notes
 
+"""This function creates the network"""
 def create_network(network_input, n_vocab):
     print('creating network')
     """ create the structure of the neural network """
@@ -123,23 +111,27 @@ def create_network(network_input, n_vocab):
         512,
         input_shape=(network_input.shape[1], network_input.shape[2]),
         return_sequences=True
-    ))
-    model.add(Dropout(0.3))
+    ))#LSTM layer takes the input and returns a sequence
+    model.add(Dropout(0.3))#Changes 0.3 of the input to 0 to avoid overfitting
     model.add(LSTM(512, return_sequences=True))
     model.add(Dropout(0.3))
     model.add(LSTM(512))
     model.add(Dense(256))
     model.add(Dropout(0.3))
     model.add(Dense(n_vocab))
-    model.add(Activation('softmax'))
+    model.add(Activation('softmax'))#Determines what function is used to calculate the weights
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+    
+    #The training can be continude by loading existing weights to the network
+    model.load_weights('weights.hdf5')
 
     return model
 
+"""This function does the actual training of the network"""
 def train(model, network_input, network_output):
     print('Training network')
-    filepath = "weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
-    checkpoint = ModelCheckpoint(
+    filepath = "After_53_epochs_weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
+    checkpoint = ModelCheckpoint(#by using checkpoints the weigths are saved after each epoch
         filepath,
         monitor='loss',
         verbose=0,
@@ -148,69 +140,7 @@ def train(model, network_input, network_output):
     )
     callbacks_list = [checkpoint]
 
-    model.fit(network_input, network_output, epochs=2, batch_size=64, callbacks=callbacks_list)
+    model.fit(network_input, network_output, epochs=60, batch_size=64, callbacks=callbacks_list)
     
-    
-def generate_notes(model, network_input, notenames, n_vocab):
-    print('generating notes')
-    """ Generate notes from the neural network based on a sequence of notes """
-    # pick a random sequence from the input as a starting point for the prediction
-    start = numpy.random.randint(0, len(network_input)-1)
-
-    int_to_note = dict((number, note) for number, note in enumerate(notenames))
-
-    pattern = network_input[start]
-    prediction_output = []
-
-    # generate 500 notes
-    for note_index in range(500):
-        prediction_input = numpy.reshape(pattern, (1, len(pattern), 1))
-        prediction_input = prediction_input / float(n_vocab)
-
-        prediction = model.predict(prediction_input, verbose=0)
-
-        index = numpy.argmax(prediction)
-        result = int_to_note[index]
-        prediction_output.append(result)
-
-        pattern.append(index)
-        pattern = pattern[1:len(pattern)]
-
-    return prediction_output
-
-def create_midi(prediction_output):
-    print('creating midi-file')
-    """ convert the output from the prediction to notes and create a midi file
-        from the notes """
-    offset = 0
-    output_notes = []
-
-    # create note and chord objects based on the values generated by the model
-    for pattern in prediction_output:
-        # pattern is a chord
-        if ('.' in pattern) or pattern.isdigit():
-            notes_in_chord = pattern.split('.')
-            notes = []
-            for current_note in notes_in_chord:
-                new_note = note.Note(int(current_note))
-                new_note.storedInstrument = instrument.Piano()
-                notes.append(new_note)
-            new_chord = chord.Chord(notes)
-            new_chord.offset = offset
-            output_notes.append(new_chord)
-        # pattern is a note
-        else:
-            new_note = note.Note(pattern)
-            new_note.offset = offset
-            new_note.storedInstrument = instrument.Piano()
-            output_notes.append(new_note)
-
-        # increase offset each iteration so that notes do not stack
-        offset += 0.5
-
-    midi_stream = stream.Stream(output_notes)
-
-    midi_stream.write('midi', fp='test_output.mid')
-
 if __name__ == '__main__':
     main()

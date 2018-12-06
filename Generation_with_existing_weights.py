@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on Wed Nov 14 16:28:19 2018
 
 @author: Henri_2
 
-Tällä funktiolla voi generoida nuotteja käyttäen valmiita painoarvoja
-neuroverkon eri solmuille. Painot ladataan funktiossa "gcreate_network"
-"""
+This function generates notes by using a neural network, which uses existing
+weights for each node of the network"""
+
 import numpy
-#import os
-#import glob
 import pickle
+import random
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
@@ -20,7 +19,6 @@ from keras.callbacks import ModelCheckpoint
 from music21 import converter, instrument, note, chord, stream
 from keras.utils import np_utils
 
- ##GENERATION OF MUSIC##
 
 def main():
 
@@ -36,16 +34,15 @@ def main():
     prediction_output = generate_notes(model, network_input, notenames, n_vocab)
     create_midi(prediction_output)
 
+"""This function is basically the same as in the Musical_RNN and
+    it cuts the notes list into sequences of inputs and their outputs"""
 def make_sequence(notes, n_vocab, notenames):
     print('total length of training data:', len(notes), ' notes')
     print('number of individual notes: ', n_vocab)
-    
-    
+       
     notes_to_int = dict((note, number) for number, note in enumerate(notenames))
-    #int_to_notes = dict((number, note) for number, note in enumerate(notenames))
     
-    # cut the text in semi-redundant sequences of maxlen characters
-    sequence_length = 100
+    sequence_length = 50
     net_input = []
     output = []
     for i in range(0, len(notes) - sequence_length, 1):
@@ -60,11 +57,10 @@ def make_sequence(notes, n_vocab, notenames):
 
     normalized_input = normalized_input/float(n_vocab)
     
-    #output = np_utils.to_categorical(output)
-    
     return (net_input, normalized_input)
 
-
+"""The network has to be the same as in the training
+    for the generation to work"""
 def create_network(network_input, n_vocab):
     print('creating network')
     """ create the structure of the neural network """
@@ -88,7 +84,7 @@ def create_network(network_input, n_vocab):
 
     return model
     
-    
+"""This function generates notes into an array"""    
 def generate_notes(model, network_input, notenames, n_vocab):
     print('generating notes')
     """ Generate notes from the neural network based on a sequence of notes """
@@ -99,6 +95,8 @@ def generate_notes(model, network_input, notenames, n_vocab):
 
     pattern = network_input[start]
     prediction_output = []
+    
+    previous_notes = []
 
     # generate 500 notes
     for note_index in range(500):
@@ -106,8 +104,19 @@ def generate_notes(model, network_input, notenames, n_vocab):
         prediction_input = prediction_input / float(n_vocab)
 
         prediction = model.predict(prediction_input, verbose=0)
-
+        
         index = numpy.argmax(prediction)
+
+        #to avoid repeating a single note over and over again
+        #the output is monitored and if there is not enough variance
+        #a random note is sampled as the next note using the sample function
+        previous_notes.append(index)
+        if len(previous_notes) > 4:
+            previous_notes.pop(0)
+            
+        if len(set(previous_notes)) < 2:
+            index = sample(prediction[0], 1)
+            
         result = int_to_note[index]
         prediction_output.append(result)
 
@@ -116,6 +125,16 @@ def generate_notes(model, network_input, notenames, n_vocab):
 
     return prediction_output
 
+def sample(preds, temperature=1.0):
+    # helper function to sample an index from a probability array
+    preds = numpy.asarray(preds).astype('float64')
+    preds = numpy.log(preds) / temperature
+    exp_preds = numpy.exp(preds)
+    preds = exp_preds / numpy.sum(exp_preds)
+    probas = numpy.random.multinomial(1, preds, 1)
+    return numpy.argmax(probas)
+
+"""This function transforms the output array into a midi file"""
 def create_midi(prediction_output):
     print('creating midi-file')
     """ convert the output from the prediction to notes and create a midi file
