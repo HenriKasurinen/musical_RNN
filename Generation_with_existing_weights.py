@@ -37,16 +37,18 @@ def main():
     note_tubles = []    
     note_tubles = list(zip(durations, pitches))   
     
+        #All unique notenames
+    notenames = sorted(set(item for item in note_tubles))  
+    
     tubles_to_int = dict((tuble, number) for number,
-                         tuble in enumerate(note_tubles))       
-    #All unique notenames
-    notenames = sorted(set(item for item in note_tubles))    
+                         tuble in enumerate(notenames))       
+  
         # get amount of unique notes
     n_unique = len(set(note_tubles))
     
     network_input, normalized_input = make_sequence(note_tubles, n_unique, notenames, 
                                                   tubles_to_int)
-    model = create_network(normalized_input, len(pitches))
+    model = create_network(normalized_input, n_unique)
     prediction_output = generate_notes(model, network_input, note_tubles, n_unique)
                                       
     create_midi(prediction_output)
@@ -60,32 +62,24 @@ def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):
     # cut the notes list into sequences of length sequence_length
     sequence_length = 50
     net_input = []
-    output = []
     for i in range(0, len(note_tubles) - sequence_length, 1):
         sequence_in = note_tubles[i: i + sequence_length]
-        #sequence_out = note_tubles[i + sequence_length]
         for key in sequence_in:
             net_input.append(tubles_to_int[key])
-        #output.append(tubles_to_int[sequence_out])
                 
     patterns = int(len(net_input)/(sequence_length))
     print(patterns)
     
-    #net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
-
-    #input_array = numpy.array(net_input)
     input_array = numpy.asarray(net_input)
     input_array = input_array.reshape(patterns, sequence_length, 1)
 
     input_array = input_array/float(n_unique)
-    
-    #output = np_utils.to_categorical(output)
-    
+        
     return (net_input, input_array)
 
 """The network has to be the same as in the training
     for the generation to work"""
-def create_network(network_input, n_vocab):
+def create_network(network_input, n_unique):
     print('creating network')
     """ create the structure of the neural network """
     model = Sequential()
@@ -100,7 +94,7 @@ def create_network(network_input, n_vocab):
     model.add(LSTM(512))
     model.add(Dense(256))
     model.add(Dropout(0.3))
-    model.add(Dense(n_vocab))
+    model.add(Dense(n_unique))
     model.add(Activation('softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
     
@@ -181,7 +175,6 @@ def create_midi(prediction_output):
                     new_note.duration.type = pattern[0]
                     new_note.storedInstrument = instrument.Piano()
                     notes.append(new_note)
-                    print('new_note: ', new_note)
                 new_chord = chord.Chord(notes)
                 new_chord.offset = offset
                 output_notes.append(new_chord)
@@ -192,7 +185,6 @@ def create_midi(prediction_output):
                 new_note.duration.type = pattern[0]
                 new_note.storedInstrument = instrument.Piano()
                 output_notes.append(new_note)
-                print('new_note: ', new_note)
         except KeyError:    
             continue
         except:
@@ -203,7 +195,6 @@ def create_midi(prediction_output):
 
     midi_stream = stream.Stream(output_notes)
     
-    print(output_notes)
 
     midi_stream.write('midi', fp='test_output.mid')
 
