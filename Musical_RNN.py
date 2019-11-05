@@ -41,11 +41,7 @@ def main():
     note_tubles = []    
     note_tubles = list(zip(durations, pitches))
     
-    #notes_to_int = dict((note, number) for number, 
-    #                    note in enumerate(pitches))
-    #durations_to_int = dict((duration, number) for number,
-    #                   duration in enumerate(durations))
-    
+    #Making a dict for cahngin notes to integers
     tubles_to_int = dict((tuble, number) for number,
                          tuble in enumerate(note_tubles))
         

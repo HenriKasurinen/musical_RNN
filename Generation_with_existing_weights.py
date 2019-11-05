@@ -24,40 +24,64 @@ def main():
 
     with open('data/notes', 'rb') as filepath:
         notes = pickle.load(filepath)
-    # get amount of pitch names
-    n_vocab = len(set(notes))
+
+    pitches = []
+    durations = []
+    #Getting aouont of individual notes and durations
+    for i in range(0, len(notes)):
+        if (i % 2 == 0): 
+            pitches.append(notes[i])
+        else: 
+            durations.append(notes[i])    
+    #Makes the notes into tubles, where each tuble is like (pitch, duration)
+    note_tubles = []    
+    note_tubles = list(zip(durations, pitches))   
     
-    notenames = sorted(set(item for item in notes))
+    tubles_to_int = dict((tuble, number) for number,
+                         tuble in enumerate(note_tubles))       
+    #All unique notenames
+    notenames = sorted(set(item for item in note_tubles))    
+        # get amount of unique notes
+    n_unique = len(set(note_tubles))
     
-    network_input, normalized_input = make_sequence(notes, n_vocab, notenames)
-    model = create_network(normalized_input, n_vocab)
-    prediction_output = generate_notes(model, network_input, notenames, n_vocab)
+    network_input, normalized_input = make_sequence(note_tubles, n_unique, notenames, 
+                                                  tubles_to_int)
+    model = create_network(normalized_input, len(pitches))
+    prediction_output = generate_notes(model, network_input, note_tubles, n_unique)
+                                      
     create_midi(prediction_output)
 
 """This function is basically the same as in the Musical_RNN and
     it cuts the notes list into sequences of inputs and their outputs"""
-def make_sequence(notes, n_vocab, notenames):
-    print('total length of training data:', len(notes), ' notes')
-    print('number of individual notes: ', n_vocab)
-       
-    notes_to_int = dict((note, number) for number, note in enumerate(notenames))
-    
+def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):
+    print('total length of training data:', len(note_tubles), ' notes')
+    print('number of individual notes-duration combinations: ', n_unique)
+           
+    # cut the notes list into sequences of length sequence_length
     sequence_length = 50
     net_input = []
     output = []
-    for i in range(0, len(notes) - sequence_length, 1):
-        sequence_in = notes[i: i + sequence_length]
-        sequence_out = notes[i + sequence_length]
-        net_input.append([notes_to_int[char] for char in sequence_in])
-        output.append(notes_to_int[sequence_out])
-        
-    patterns = len(net_input)
-
-    normalized_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
-
-    normalized_input = normalized_input/float(n_vocab)
+    for i in range(0, len(note_tubles) - sequence_length, 1):
+        sequence_in = note_tubles[i: i + sequence_length]
+        #sequence_out = note_tubles[i + sequence_length]
+        for key in sequence_in:
+            net_input.append(tubles_to_int[key])
+        #output.append(tubles_to_int[sequence_out])
+                
+    patterns = int(len(net_input)/(sequence_length))
+    print(patterns)
     
-    return (net_input, normalized_input)
+    #net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
+
+    #input_array = numpy.array(net_input)
+    input_array = numpy.asarray(net_input)
+    input_array = input_array.reshape(patterns, sequence_length, 1)
+
+    input_array = input_array/float(n_unique)
+    
+    #output = np_utils.to_categorical(output)
+    
+    return (net_input, input_array)
 
 """The network has to be the same as in the training
     for the generation to work"""
@@ -85,15 +109,16 @@ def create_network(network_input, n_vocab):
     return model
     
 """This function generates notes into an array"""    
-def generate_notes(model, network_input, notenames, n_vocab):
+def generate_notes(model, network_input, note_tubles, n_vocab):
     print('generating notes')
     """ Generate notes from the neural network based on a sequence of notes """
     # pick a random sequence from the input as a starting point for the prediction
     start = numpy.random.randint(0, len(network_input)-1)
 
-    int_to_note = dict((number, note) for number, note in enumerate(notenames))
+    int_to_tubles = dict((number, tuble) for number, 
+                         tuble in enumerate(note_tubles))
 
-    pattern = network_input[start]
+    pattern = network_input[start: start + 50]
     prediction_output = []
     
     previous_notes = []
@@ -108,16 +133,17 @@ def generate_notes(model, network_input, notenames, n_vocab):
         index = numpy.argmax(prediction)
 
         #to avoid repeating a single note over and over again
-        #the output is monitored and if there is not enough variance
+        #the output is monitored and if there is not enough variance 
+        #(7 individual notes whithin 20 notes)
         #a random note is sampled as the next note using the sample function
         previous_notes.append(index)
-        if len(previous_notes) > 4:
+        if len(previous_notes) > 20:
             previous_notes.pop(0)
             
-        if len(set(previous_notes)) < 2:
+        if len(set(previous_notes)) < 7:
             index = sample(prediction[0], 1)
             
-        result = int_to_note[index]
+        result = int_to_tubles[index]
         prediction_output.append(result)
 
         pattern.append(index)
@@ -144,28 +170,40 @@ def create_midi(prediction_output):
 
     # create note and chord objects based on the values generated by the model
     for pattern in prediction_output:
-        # pattern is a chord
-        if ('.' in pattern) or pattern.isdigit():
-            notes_in_chord = pattern.split('.')
-            notes = []
-            for current_note in notes_in_chord:
-                new_note = note.Note(int(current_note))
+        try:
+            # pattern is a chord
+            if ('.' in pattern[1]) or pattern[1].isdigit():
+                
+                notes_in_chord = pattern[1].split('.')
+                notes = []
+                for current_note in notes_in_chord:
+                    new_note = note.Note(int(current_note))
+                    new_note.duration.type = pattern[0]
+                    new_note.storedInstrument = instrument.Piano()
+                    notes.append(new_note)
+                    print('new_note: ', new_note)
+                new_chord = chord.Chord(notes)
+                new_chord.offset = offset
+                output_notes.append(new_chord)
+            # pattern is a note
+            else:
+                new_note = note.Note(pattern[1])
+                new_note.offset = offset
+                new_note.duration.type = pattern[0]
                 new_note.storedInstrument = instrument.Piano()
-                notes.append(new_note)
-            new_chord = chord.Chord(notes)
-            new_chord.offset = offset
-            output_notes.append(new_chord)
-        # pattern is a note
-        else:
-            new_note = note.Note(pattern)
-            new_note.offset = offset
-            new_note.storedInstrument = instrument.Piano()
-            output_notes.append(new_note)
+                output_notes.append(new_note)
+                print('new_note: ', new_note)
+        except KeyError:    
+            continue
+        except:
+            continue
 
         # increase offset each iteration so that notes do not stack
         offset += 0.5
 
     midi_stream = stream.Stream(output_notes)
+    
+    print(output_notes)
 
     midi_stream.write('midi', fp='test_output.mid')
 
