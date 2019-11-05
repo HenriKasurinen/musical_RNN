@@ -7,7 +7,7 @@ Created on Mon Nov 12 17:36:46 2018
 This script trains a recursive neural network with midi data
 """
 from __future__ import print_function
-from music21 import converter, instrument, note, chord, stream
+from music21 import converter, instrument, note, chord
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
@@ -28,45 +28,80 @@ def main():
     with open('data/notes', 'rb') as filepath:
         notes = pickle.load(filepath)
 
-    # get amount of pitch names
-    n_vocab = len(set(notes))
+    pitches = []
+    durations = []
+    #Getting aouont of individual notes and durations
+    for i in range(0, len(notes)):
+        if (i % 2 == 0): 
+            pitches.append(notes[i])
+        else: 
+            durations.append(notes[i])
     
-    notenames = sorted(set(item for item in notes))
+    #Makes the notes into tubles, where each tuble is like (pitch, duration)
+    note_tubles = []    
+    note_tubles = list(zip(durations, pitches))
     
-    network_input, network_output = make_sequence(notes, n_vocab, notenames)
+    #notes_to_int = dict((note, number) for number, 
+    #                    note in enumerate(pitches))
+    #durations_to_int = dict((duration, number) for number,
+    #                   duration in enumerate(durations))
+    
+    tubles_to_int = dict((tuble, number) for number,
+                         tuble in enumerate(note_tubles))
+        
+    #All unique notenames
+    notenames = sorted(set(item for item in note_tubles))
+    
+        # get amount of unique notes
+    n_unique = len(set(note_tubles))
 
-    model = create_network(network_input, n_vocab)
+    
+    network_input, network_output = make_sequence(note_tubles, n_unique, notenames, 
+                                                  tubles_to_int)
 
-    train(model, network_input, network_output)
+    #model = create_network(network_input, n_vocab)
+
+    #train(model, network_input, network_output)
     
 
 """ This function cuts the notes list into "sequence_length" long sequences
     and their respective outputs: X notes from the list and the X+1:th note as 
     the output of the sequence. These sequences are used to train the network"""
-def make_sequence(notes, n_vocab, notenames):
+def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):
 
-    print('total length of training data:', len(notes), ' notes')
-    print('number of individual notes: ', n_vocab)
         
-    #Each note object is mapped to an integer, because the network can handle
-    #integer better than strings
-    notes_to_int = dict((note, number) for number, note in enumerate(notenames))
+    print('total length of training data:', len(note_tubles), ' notes')
+    print('number of individual notes-duration combinations: ', n_unique)
+        
     
     # cut the notes list into sequences of length sequence_length
     sequence_length = 50
     net_input = []
     output = []
-    for i in range(0, len(notes) - sequence_length, 1):
-        sequence_in = notes[i: i + sequence_length]
-        sequence_out = notes[i + sequence_length]
-        net_input.append([notes_to_int[char] for char in sequence_in])
-        output.append(notes_to_int[sequence_out])
+    for i in range(0, len(note_tubles) - sequence_length, 1):
+        sequence_in = note_tubles[i: i + sequence_length]
+        sequence_out = note_tubles[i + sequence_length]
+        for key in sequence_in:
+            net_input.append(tubles_to_int.get(key))
+        output.append(tubles_to_int.get(sequence_out))
+        
+        
+        net_input.append(sequence_in)
+        output.append(tubles_to_int[sequence_out])
         
     patterns = len(net_input)
+    print(patterns)
+    
+    print(type(net_input[1]))
+    print(type(output[1]))
+    print(type(patterns))
+    #net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
 
-    net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
+    input_array = numpy.array([])
+    input_array = numpy.asarray(net_input)
+    input_array = input_array.reshape(patterns, sequence_length, 1)
 
-    net_input = net_input/float(n_vocab)
+    net_input = net_input/float(n_unique)
     
     output = np_utils.to_categorical(output)
     
@@ -94,8 +129,10 @@ def get_notes():
         for element in notes_to_parse:
             if isinstance(element, note.Note):
                 notes.append(str(element.pitch))
+                notes.append(str(element.duration.type))
             elif isinstance(element, chord.Chord):
                 notes.append('.'.join(str(n) for n in element.normalOrder))
+                notes.append(str(element.duration.type))
     
     with open('notes', 'wb') as filepath:
         pickle.dump(notes, filepath)
@@ -123,7 +160,7 @@ def create_network(network_input, n_vocab):
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
     
     #The training can be continude by loading existing weights to the network
-    model.load_weights('weights.hdf5')
+    #model.load_weights('weights.hdf5')
 
     return model
 
