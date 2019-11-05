@@ -54,26 +54,20 @@ def main():
     
         # get amount of unique notes
     n_unique = len(set(note_tubles))
-
     
     network_input, network_output = make_sequence(note_tubles, n_unique, notenames, 
                                                   tubles_to_int)
-
-    #model = create_network(network_input, n_vocab)
-
-    #train(model, network_input, network_output)
+    model = create_network(network_input, len(pitches))
+    train(model, network_input, network_output)
     
 
 """ This function cuts the notes list into "sequence_length" long sequences
     and their respective outputs: X notes from the list and the X+1:th note as 
     the output of the sequence. These sequences are used to train the network"""
-def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):
-
-        
+def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):       
     print('total length of training data:', len(note_tubles), ' notes')
     print('number of individual notes-duration combinations: ', n_unique)
-        
-    
+           
     # cut the notes list into sequences of length sequence_length
     sequence_length = 50
     net_input = []
@@ -82,30 +76,23 @@ def make_sequence(note_tubles, n_unique, notenames, tubles_to_int):
         sequence_in = note_tubles[i: i + sequence_length]
         sequence_out = note_tubles[i + sequence_length]
         for key in sequence_in:
-            net_input.append(tubles_to_int.get(key))
-        output.append(tubles_to_int.get(sequence_out))
-        
-        
-        net_input.append(sequence_in)
+            net_input.append(tubles_to_int[key])
         output.append(tubles_to_int[sequence_out])
-        
-    patterns = len(net_input)
+                
+    patterns = int(len(net_input)/(sequence_length))
     print(patterns)
     
-    print(type(net_input[1]))
-    print(type(output[1]))
-    print(type(patterns))
     #net_input = numpy.reshape(net_input, (patterns, sequence_length, 1))
 
-    input_array = numpy.array([])
+    #input_array = numpy.array(net_input)
     input_array = numpy.asarray(net_input)
     input_array = input_array.reshape(patterns, sequence_length, 1)
 
-    net_input = net_input/float(n_unique)
+    input_array = input_array/float(n_unique)
     
     output = np_utils.to_categorical(output)
     
-    return (net_input, output)
+    return (input_array, output)
 
 """ This function gets all the notes and chords from the midi files in the 
     ./Data directory and creates a list of each note in the midi songs"""
