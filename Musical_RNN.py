@@ -24,9 +24,9 @@ import pickle
 def main():
     """ Train a Neural Network to generate music """
     #The notes can be extracted from midi files or loaded directly from as a list    
-    notes = get_notes()    
-    #with open('data/notes', 'rb') as filepath:
-    #    notes = pickle.load(filepath)
+    #notes = get_notes()    
+    with open('data/notes', 'rb') as filepath:
+        notes = pickle.load(filepath)
 
     pitches = []
     durations = []
@@ -140,7 +140,7 @@ def create_network(network_input, n_unique):
     model.add(Dropout(0.3))
     model.add(Dense(n_unique))
     model.add(Activation('softmax'))#Determines what function is used to calculate the weights
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
+    model.compile(loss='categorical_crossentropy', optimizer='adam')#used to be 'rsmprop'
     
     #The training can be continude by loading existing weights to the network
     #model.load_weights('weights.hdf5')
@@ -150,7 +150,7 @@ def create_network(network_input, n_unique):
 """This function does the actual training of the network"""
 def train(model, network_input, network_output):
     print('Training network')
-    filepath = "After_53_epochs_weights-improvement-{epoch:02d}-{loss:.4f}-bigger.hdf5"
+    filepath = "After-{epoch:02d}-{loss:.4f}-bigger.hdf5"
     checkpoint = ModelCheckpoint(#by using checkpoints the weigths are saved after each epoch
         filepath,
         monitor='loss',

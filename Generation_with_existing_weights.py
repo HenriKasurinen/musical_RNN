@@ -21,7 +21,7 @@ from keras.utils import np_utils
 
 
 def main():
-
+    #use same notes as in training
     with open('data/notes', 'rb') as filepath:
         notes = pickle.load(filepath)
 
