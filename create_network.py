@@ -18,15 +18,15 @@ def create_network(network_input, n_unique):
     """ create the structure of the neural network """
     model = Sequential()
     model.add(LSTM(
-        512,
+        1024,
         input_shape=(network_input.shape[1], network_input.shape[2]),
         return_sequences=True
     ))#LSTM layer takes the input and returns a sequence
     model.add(Dropout(0.3))#Changes 0.3 of the input to 0 to avoid overfitting
-    model.add(LSTM(512, return_sequences=True))
+    model.add(LSTM(1024, return_sequences=True))
     model.add(Dropout(0.3))
-    model.add(LSTM(512))
-    model.add(Dense(256))
+    model.add(LSTM(1024))
+    model.add(Dense(512))
     model.add(Dropout(0.3))
     model.add(Dense(n_unique))
     model.add(Activation('softmax'))#Determines what function is used to calculate the weights
