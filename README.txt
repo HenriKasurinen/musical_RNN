@@ -1,3 +1,5 @@
+SYSTEM: The program is designed to run on Python 3.5
+
 Musical_RNN.py takes a set of midi files and trains a recurrent neural network with the data. The weights for each node of the network
 are saved after each epoch of training and can be used to create new music using the file Generation_with_existing_weights.py.
 
